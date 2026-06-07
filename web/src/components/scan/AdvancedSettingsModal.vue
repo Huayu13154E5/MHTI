@@ -55,6 +55,7 @@ const formData = ref<Omit<ManualJobAdvancedSettings, 'use_global_organize' | 'us
   download_poster: true,
   download_thumb: true,
   download_fanart: false,
+  use_local_images: false,
   series_folder_template: '{series_name} ({year})',
   season_folder_template: 'Season {season}',
   episode_file_template: '{series_name} - S{season:02d}E{episode:02d}',
@@ -114,6 +115,13 @@ const handleMetadataFolderConfirm = (path: string) => {
 watch(() => props.show, (show) => {
   if (show) {
     activeTab.value = 'organize'
+  }
+})
+
+// 开启"使用本地图片"时自动关闭"下载缩略图"
+watch(() => formData.value.use_local_images, (newVal) => {
+  if (newVal) {
+    formData.value.download_thumb = false
   }
 })
 </script>
@@ -197,6 +205,12 @@ watch(() => props.show, (show) => {
               </NFormItem>
               <NFormItem label="下载同人图">
                 <NSwitch v-model:value="formData.download_fanart" />
+              </NFormItem>
+              <NFormItem label="使用本地图片">
+                <NSwitch v-model:value="formData.use_local_images" />
+                <span style="margin-left: 8px; font-size: 12px; color: #999;">
+                  优先使用视频同目录下的 fanart/poster 图片，开启后自动关闭"下载缩略图"
+                </span>
               </NFormItem>
             </NForm>
           </template>

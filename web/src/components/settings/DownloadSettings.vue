@@ -41,6 +41,7 @@ const config = reactive<DownloadConfig>({
   thumb_quality: 'w780',
   // 下载行为
   overwrite_existing: false,
+  use_local_images: false,
 })
 
 const qualityOptions = [
@@ -191,6 +192,12 @@ onMounted(loadConfig)
       <NFormItem label="覆盖已存在的图片" label-placement="left">
         <NSwitch v-model:value="config.overwrite_existing" />
         <span style="margin-left: 8px; color: #999">关闭时跳过已存在的图片文件</span>
+      </NFormItem>
+      <NFormItem label="使用本地图片" label-placement="left">
+        <NSwitch v-model:value="config.use_local_images" />
+        <span style="margin-left: 8px; color: #999">
+          刮削时优先使用视频同目录下的 fanart/poster 图片（Emby 命名规范）。未找到时回退到 TMDB 下载
+        </span>
       </NFormItem>
 
       <NSpace style="margin-top: 8px">

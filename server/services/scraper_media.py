@@ -6,11 +6,13 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from server.models.emby import ConflictCheckRequest, ConflictCheckResult, ConflictType
+from server.models.organize import OrganizeMode
 from server.models.tmdb import TMDBSeason, TMDBSeries
 
 if TYPE_CHECKING:
@@ -198,6 +200,94 @@ class ScraperMediaMixin:
                     logger.warning(f"字幕处理失败: {result.error}")
 
         return moved_subtitles
+
+    def _process_local_images(
+        self,
+        source_video_path: str,
+        dest_video_path: str,
+        link_mode: OrganizeMode | None = None,
+    ) -> tuple[str | None, str | None]:
+        """检测并移动本地 fanart/poster 图片到目标目录。
+
+        检测规则：
+        - fanart: 源视频同目录下 {video_stem}-fanart.* 文件
+        - poster: 源视频同目录下 {video_stem}-poster.* 文件
+
+        目标命名规则（Emby 规范）：
+        - fanart: {dest_video_stem}-fanart.{原始扩展名}
+        - poster: {dest_video_stem}.{原始扩展名}（Emby episode thumb，去掉 -poster）
+
+        Args:
+            source_video_path: 源视频文件路径。
+            dest_video_path: 目标视频文件路径。
+            link_mode: 整理模式。
+
+        Returns:
+            (moved_fanart_path, moved_poster_path) 元组，未找到则为 None。
+        """
+        source_path = Path(source_video_path)
+        dest_path = Path(dest_video_path)
+        source_folder = source_path.parent
+        dest_folder = dest_path.parent
+        source_stem = source_path.stem
+        dest_stem = dest_path.stem
+
+        moved_fanart: str | None = None
+        moved_poster: str | None = None
+
+        # 支持的图片扩展名（按优先级）
+        image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp']
+
+        # 检测 fanart 图片: {stem}-fanart.*
+        for ext in image_extensions:
+            fanart_path = source_folder / f"{source_stem}-fanart{ext}"
+            if fanart_path.exists():
+                dest_fanart = dest_folder / f"{dest_stem}-fanart{ext}"
+                self._execute_file_operation_for_image(fanart_path, dest_fanart, link_mode)
+                moved_fanart = str(dest_fanart)
+                mode_name = "移动" if (link_mode or OrganizeMode.MOVE) != OrganizeMode.COPY else "复制"
+                logger.info(f"本地 fanart 已{mode_name}: {fanart_path.name} -> {dest_fanart.name}")
+                break
+
+        # 检测 poster 图片: {stem}-poster.* → 重命名为 {dest_stem}.{ext}（Emby episode thumb）
+        for ext in image_extensions:
+            poster_path = source_folder / f"{source_stem}-poster{ext}"
+            if poster_path.exists():
+                dest_poster = dest_folder / f"{dest_stem}{ext}"
+                self._execute_file_operation_for_image(poster_path, dest_poster, link_mode)
+                moved_poster = str(dest_poster)
+                mode_name = "移动" if (link_mode or OrganizeMode.MOVE) != OrganizeMode.COPY else "复制"
+                logger.info(f"本地 poster 已{mode_name}: {poster_path.name} -> {dest_poster.name}")
+                break
+
+        return moved_fanart, moved_poster
+
+    @staticmethod
+    def _execute_file_operation_for_image(
+        source_path: Path,
+        dest_path: Path,
+        link_mode: OrganizeMode | None = None,
+    ) -> None:
+        """对图片文件执行文件操作（复制/移动/硬链接/软链接）。
+
+        Args:
+            source_path: 源文件路径。
+            dest_path: 目标文件路径。
+            link_mode: 整理模式。
+        """
+        mode = link_mode or OrganizeMode.MOVE
+
+        # 确保目标目录存在
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if mode == OrganizeMode.COPY:
+            shutil.copy2(str(source_path), str(dest_path))
+        elif mode == OrganizeMode.HARDLINK:
+            os.link(str(source_path), str(dest_path))
+        elif mode == OrganizeMode.SYMLINK:
+            os.symlink(str(source_path), str(dest_path))
+        else:  # MOVE
+            shutil.move(str(source_path), str(dest_path))
 
     async def _check_emby_conflict(
         self,

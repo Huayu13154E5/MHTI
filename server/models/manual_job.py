@@ -60,6 +60,7 @@ class ManualJobAdvancedSettings(BaseModel):
     download_poster: bool = True
     download_thumb: bool = True
     download_fanart: bool = False
+    use_local_images: bool = False  # 优先使用本地 fanart/poster 图片
 
     # 命名设置（当 use_global_naming=False 时使用）
     series_folder_template: str = ""

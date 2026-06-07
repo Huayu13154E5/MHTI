@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
   NFormItem,
   NRadioGroup,
@@ -32,6 +32,7 @@ const props = defineProps<{
   downloadPoster: boolean
   downloadBackdrop: boolean
   downloadThumbnail: boolean
+  useLocalImages: boolean
   generateNfo: boolean
   processSubtitle: boolean
   overwriteExisting: boolean
@@ -44,6 +45,7 @@ const emit = defineEmits<{
   (e: 'update:downloadPoster', value: boolean): void
   (e: 'update:downloadBackdrop', value: boolean): void
   (e: 'update:downloadThumbnail', value: boolean): void
+  (e: 'update:useLocalImages', value: boolean): void
   (e: 'update:generateNfo', value: boolean): void
   (e: 'update:processSubtitle', value: boolean): void
   (e: 'update:overwriteExisting', value: boolean): void
@@ -61,6 +63,13 @@ const linkModeOptions = [
 // 当前选中的链接模式信息
 const currentModeInfo = computed(() => {
   return linkModeOptions.find(opt => opt.value === props.linkMode)
+})
+
+// 开启"使用本地图片"时自动关闭"下载剧集缩略图"
+watch(() => props.useLocalImages, (newVal) => {
+  if (newVal) {
+    emit('update:downloadThumbnail', false)
+  }
 })
 </script>
 
@@ -135,7 +144,18 @@ const currentModeInfo = computed(() => {
           </div>
           <NSwitch
             :value="downloadThumbnail"
+            :disabled="useLocalImages"
             @update:value="emit('update:downloadThumbnail', $event)"
+          />
+        </div>
+        <div class="switch-item">
+          <div class="switch-label">
+            <span>使用本地图片</span>
+            <span class="switch-desc">fanart / poster</span>
+          </div>
+          <NSwitch
+            :value="useLocalImages"
+            @update:value="emit('update:useLocalImages', $event)"
           />
         </div>
       </div>

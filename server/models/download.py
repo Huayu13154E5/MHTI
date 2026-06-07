@@ -40,3 +40,4 @@ class DownloadConfig(BaseModel):
 
     # ===== 下载行为 =====
     overwrite_existing: bool = False  # 覆盖已存在的图片
+    use_local_images: bool = False  # 优先使用本地 fanart/poster 图片，未找到时回退到 TMDB

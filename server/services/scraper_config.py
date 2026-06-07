@@ -40,13 +40,15 @@ class ScraperConfigMixin:
                 "download_poster": global_config.series_poster,
                 "download_thumb": global_config.episode_thumb,
                 "download_fanart": global_config.series_backdrop,
+                "use_local_images": global_config.use_local_images,
             }
         else:
-            # 使用任务级设置
+            # 使用任务级设置覆盖下载图片类型
             return {
                 "download_poster": advanced_settings.download_poster,
                 "download_thumb": advanced_settings.download_thumb,
                 "download_fanart": advanced_settings.download_fanart,
+                "use_local_images": advanced_settings.use_local_images,
             }
 
     async def _get_effective_nfo_config(

@@ -531,14 +531,35 @@ class ScraperService(ScraperConfigMixin, ScraperMetadataMixin, ScraperMediaMixin
                 image_step.logs.append(ScrapeLogEntry(message="剧集图片下载已跳过（配置禁用）"))
             await notify_log_update()
 
-            # 下载集封面图到元数据季度文件夹
-            if download_config["download_thumb"]:
-                await self._download_episode_image(
-                    season_info, season_num, episode_num, str(metadata_season_folder), dest_file.stem
+            # 处理单集图片：优先使用本地图片，不存在时回退到 TMDB 下载
+            use_local = download_config.get("use_local_images", False)
+            local_handled = False
+
+            if use_local:
+                # 尝试使用本地 fanart/poster 图片（图片保存到视频所在目录）
+                moved_fanart, moved_poster = self._process_local_images(
+                    file_path, str(dest_file), request.link_mode
                 )
-                image_step.logs.append(ScrapeLogEntry(message="集封面图处理完成"))
-            else:
-                image_step.logs.append(ScrapeLogEntry(message="集封面图下载已跳过（配置禁用）"))
+                if moved_fanart or moved_poster:
+                    parts = []
+                    if moved_fanart:
+                        parts.append("fanart")
+                    if moved_poster:
+                        parts.append("poster(thumb)")
+                    image_step.logs.append(ScrapeLogEntry(message=f"本地图片已处理: {', '.join(parts)}"))
+                    local_handled = True
+                else:
+                    image_step.logs.append(ScrapeLogEntry(message="未找到本地图片，回退到 TMDB 下载"))
+
+            # 回退到 TMDB 下载（use_local_images 关闭，或开启了但未找到任何本地图片）
+            if not local_handled:
+                if download_config["download_thumb"]:
+                    await self._download_episode_image(
+                        season_info, season_num, episode_num, str(metadata_season_folder), dest_file.stem
+                    )
+                    image_step.logs.append(ScrapeLogEntry(message="集封面图处理完成（TMDB）"))
+                else:
+                    image_step.logs.append(ScrapeLogEntry(message="集封面图下载已跳过（配置禁用）"))
             await notify_log_update()
 
             # 处理关联字幕文件
@@ -780,14 +801,35 @@ class ScraperService(ScraperConfigMixin, ScraperMetadataMixin, ScraperMediaMixin
                 image_step.logs.append(ScrapeLogEntry(message="剧集图片下载已跳过（配置禁用）"))
             await notify_log_update()
 
-            # 下载集封面图到元数据季度文件夹
-            if download_config["download_thumb"]:
-                await self._download_episode_image(
-                    season_info, request.season, request.episode, str(metadata_season_folder), dest_file.stem
+            # 处理单集图片：优先使用本地图片，不存在时回退到 TMDB 下载
+            use_local = download_config.get("use_local_images", False)
+            local_handled = False
+
+            if use_local:
+                # 尝试使用本地 fanart/poster 图片（图片保存到视频所在目录）
+                moved_fanart, moved_poster = self._process_local_images(
+                    file_path, str(dest_file), request.link_mode
                 )
-                image_step.logs.append(ScrapeLogEntry(message="集封面图处理完成"))
-            else:
-                image_step.logs.append(ScrapeLogEntry(message="集封面图下载已跳过（配置禁用）"))
+                if moved_fanart or moved_poster:
+                    parts = []
+                    if moved_fanart:
+                        parts.append("fanart")
+                    if moved_poster:
+                        parts.append("poster(thumb)")
+                    image_step.logs.append(ScrapeLogEntry(message=f"本地图片已处理: {', '.join(parts)}"))
+                    local_handled = True
+                else:
+                    image_step.logs.append(ScrapeLogEntry(message="未找到本地图片，回退到 TMDB 下载"))
+
+            # 回退到 TMDB 下载（use_local_images 关闭，或开启了但未找到任何本地图片）
+            if not local_handled:
+                if download_config["download_thumb"]:
+                    await self._download_episode_image(
+                        season_info, request.season, request.episode, str(metadata_season_folder), dest_file.stem
+                    )
+                    image_step.logs.append(ScrapeLogEntry(message="集封面图处理完成（TMDB）"))
+                else:
+                    image_step.logs.append(ScrapeLogEntry(message="集封面图下载已跳过（配置禁用）"))
             await notify_log_update()
 
             # 处理关联字幕文件

@@ -68,6 +68,7 @@ const formData = ref({
   download_poster: true,
   download_backdrop: true,
   download_thumbnail: true,
+  use_local_images: false,
   generate_nfo: true,
   process_subtitle: true,
   overwrite_existing: false,
@@ -151,6 +152,7 @@ const resetForm = () => {
     download_poster: true,
     download_backdrop: true,
     download_thumbnail: true,
+    use_local_images: false,
     generate_nfo: true,
     process_subtitle: true,
     overwrite_existing: false,
@@ -197,6 +199,46 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
+    // 如果 OptionsStep 中开启了 use_local_images，合并到 advancedSettings 中
+    let finalAdvancedSettings = advancedSettings.value
+    if (formData.value.use_local_images && !finalAdvancedSettings) {
+      finalAdvancedSettings = {
+        use_global_organize: true,
+        use_global_download: false,
+        use_global_naming: true,
+        use_global_metadata: true,
+        metadata_folder: '',
+        file_size_filter: 100,
+        file_ext_whitelist: [],
+        file_name_blacklist: [],
+        file_sanitize_list: [],
+        delete_metadata_on_fail: false,
+        overwrite_video: false,
+        overwrite_image: false,
+        protect_ext_whitelist: false,
+        delete_by_size: false,
+        delete_by_ext: false,
+        delete_by_name: false,
+        extra_ext_whitelist: [],
+        download_poster: true,
+        download_thumb: false,
+        download_fanart: false,
+        use_local_images: true,
+        series_folder_template: '',
+        season_folder_template: '',
+        episode_file_template: '',
+        scrape_title: true,
+        scrape_plot: true,
+        nfo_enabled: true,
+      }
+    } else if (formData.value.use_local_images && finalAdvancedSettings) {
+      finalAdvancedSettings = {
+        ...finalAdvancedSettings,
+        use_local_images: true,
+        use_global_download: false,
+      }
+    }
+
     await manualJobApi.create({
       scan_path: formData.value.scan_path.trim(),
       target_folder: formData.value.target_folder.trim(),
@@ -204,7 +246,7 @@ const handleSubmit = async () => {
       link_mode: formData.value.link_mode,
       delete_empty_parent: formData.value.delete_empty_parent,
       config_reuse_id: formData.value.config_reuse_id,
-      advanced_settings: advancedSettings.value,
+      advanced_settings: finalAdvancedSettings,
     })
     message.success('任务创建成功')
     emit('success')
@@ -294,6 +336,7 @@ onMounted(() => {
           v-model:download-poster="formData.download_poster"
           v-model:download-backdrop="formData.download_backdrop"
           v-model:download-thumbnail="formData.download_thumbnail"
+          v-model:use-local-images="formData.use_local_images"
           v-model:generate-nfo="formData.generate_nfo"
           v-model:process-subtitle="formData.process_subtitle"
           v-model:overwrite-existing="formData.overwrite_existing"

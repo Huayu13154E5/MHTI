@@ -377,6 +377,7 @@ export interface DownloadConfig {
   thumb_quality: ImageQuality
   // 下载行为
   overwrite_existing: boolean
+  use_local_images: boolean  // 优先使用本地 fanart/poster 图片，未找到时回退到 TMDB
 }
 
 // 监控配置相关
@@ -504,6 +505,7 @@ export interface ManualJobAdvancedSettings {
   download_poster: boolean
   download_thumb: boolean
   download_fanart: boolean
+  use_local_images: boolean  // 优先使用本地 fanart/poster 图片
   // 命名设置（当 use_global_naming=false 时使用）
   series_folder_template: string
   season_folder_template: string
