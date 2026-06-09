@@ -12,6 +12,7 @@ from pathlib import Path
 
 import httpx
 
+from server.core.exceptions import TMDBConnectionError, TMDBTimeoutError
 from server.models.emby import ConflictType
 from server.models.history import LogLevel, ScrapeLogEntry, ScrapeLogStep
 from server.models.organize import OrganizeMode
@@ -211,7 +212,7 @@ class ScraperService(ScraperConfigMixin, ScraperMetadataMixin, ScraperMediaMixin
             result.search_results = adult_results
             search_step.logs.append(ScrapeLogEntry(message=f"找到 {len(adult_results)} 个匹配结果"))
             await notify_log_update()
-        except httpx.TimeoutException:
+        except TMDBTimeoutError:
             search_step.logs.append(ScrapeLogEntry(message="TMDB 搜索超时", level=LogLevel.ERROR))
             search_step.completed = False
             await notify_log_update()
@@ -219,7 +220,7 @@ class ScraperService(ScraperConfigMixin, ScraperMetadataMixin, ScraperMediaMixin
             result.message = "TMDB 搜索超时，请检查网络或 Cookie"
             result.scrape_logs = scrape_logs
             return result
-        except httpx.RequestError as e:
+        except TMDBConnectionError as e:
             search_step.logs.append(ScrapeLogEntry(message=f"TMDB 搜索失败: {str(e)}", level=LogLevel.ERROR))
             search_step.completed = False
             await notify_log_update()
@@ -292,7 +293,7 @@ class ScraperService(ScraperConfigMixin, ScraperMetadataMixin, ScraperMediaMixin
             result.message = str(e)
             result.scrape_logs = scrape_logs
             return result
-        except httpx.TimeoutException:
+        except TMDBTimeoutError:
             detail_step.logs.append(ScrapeLogEntry(message="TMDB API 请求超时", level=LogLevel.ERROR))
             detail_step.completed = False
             await notify_log_update()
@@ -300,7 +301,7 @@ class ScraperService(ScraperConfigMixin, ScraperMetadataMixin, ScraperMediaMixin
             result.message = "TMDB API 请求超时"
             result.scrape_logs = scrape_logs
             return result
-        except httpx.RequestError as e:
+        except TMDBConnectionError as e:
             detail_step.logs.append(ScrapeLogEntry(message=f"TMDB API 请求失败: {str(e)}", level=LogLevel.ERROR))
             detail_step.completed = False
             await notify_log_update()

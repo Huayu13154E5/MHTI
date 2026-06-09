@@ -296,49 +296,43 @@ class TMDBService:
         if language is None:
             language = await self._get_language()
 
-        try:
-            response = await self._make_api_request(
-                "/search/tv",
-                params={"query": query, "language": language, "include_adult": "true"},
-            )
+        response = await self._make_api_request(
+            "/search/tv",
+            params={"query": query, "language": language, "include_adult": "true"},
+        )
 
-            if response.status_code != 200:
-                return TMDBSearchResponse(query=query, total_results=0, results=[])
+        if response.status_code != 200:
+            return TMDBSearchResponse(query=query, total_results=0, results=[])
 
-            data = response.json()
-            results = []
+        data = response.json()
+        results = []
 
-            for item in data.get("results", [])[:20]:
-                first_air_date = None
-                if item.get("first_air_date"):
-                    try:
-                        first_air_date = date.fromisoformat(item["first_air_date"])
-                    except ValueError:
-                        pass
+        for item in data.get("results", [])[:20]:
+            first_air_date = None
+            if item.get("first_air_date"):
+                try:
+                    first_air_date = date.fromisoformat(item["first_air_date"])
+                except ValueError:
+                    pass
 
-                results.append(
-                    TMDBSearchResult(
-                        id=item["id"],
-                        name=item.get("name", ""),
-                        original_name=item.get("original_name"),
-                        first_air_date=first_air_date,
-                        poster_path=item.get("poster_path"),
-                        overview=item.get("overview"),
-                        vote_average=item.get("vote_average"),
-                        adult=item.get("adult", False),
-                    )
+            results.append(
+                TMDBSearchResult(
+                    id=item["id"],
+                    name=item.get("name", ""),
+                    original_name=item.get("original_name"),
+                    first_air_date=first_air_date,
+                    poster_path=item.get("poster_path"),
+                    overview=item.get("overview"),
+                    vote_average=item.get("vote_average"),
+                    adult=item.get("adult", False),
                 )
-
-            return TMDBSearchResponse(
-                query=query,
-                total_results=data.get("total_results", len(results)),
-                results=results,
             )
 
-        except ValueError:
-            raise
-        except (httpx.TimeoutException, httpx.RequestError):
-            raise
+        return TMDBSearchResponse(
+            query=query,
+            total_results=data.get("total_results", len(results)),
+            results=results,
+        )
 
     async def get_series_by_api(
         self,
@@ -358,24 +352,18 @@ class TMDBService:
         if language is None:
             language = await self._get_language()
 
-        try:
-            response = await self._make_api_request(
-                f"/tv/{tmdb_id}",
-                params={"language": language},
-            )
+        response = await self._make_api_request(
+            f"/tv/{tmdb_id}",
+            params={"language": language},
+        )
 
-            if response.status_code == 404:
-                return None
-            if response.status_code != 200:
-                return None
+        if response.status_code == 404:
+            return None
+        if response.status_code != 200:
+            return None
 
-            data = response.json()
-            return self._parse_series_json(data)
-
-        except ValueError:
-            raise
-        except (httpx.TimeoutException, httpx.RequestError):
-            raise
+        data = response.json()
+        return self._parse_series_json(data)
 
     def _parse_series_json(self, data: dict) -> TMDBSeries:
         """Parse series data from API JSON response."""
@@ -430,24 +418,18 @@ class TMDBService:
         if language is None:
             language = await self._get_language()
 
-        try:
-            response = await self._make_api_request(
-                f"/tv/{tmdb_id}/season/{season_number}",
-                params={"language": language},
-            )
+        response = await self._make_api_request(
+            f"/tv/{tmdb_id}/season/{season_number}",
+            params={"language": language},
+        )
 
-            if response.status_code == 404:
-                return None
-            if response.status_code != 200:
-                return None
+        if response.status_code == 404:
+            return None
+        if response.status_code != 200:
+            return None
 
-            data = response.json()
-            return self._parse_season_json(data)
-
-        except ValueError:
-            raise
-        except (httpx.TimeoutException, httpx.RequestError):
-            raise
+        data = response.json()
+        return self._parse_season_json(data)
 
     def _parse_season_json(self, data: dict) -> TMDBSeason:
         """Parse season data from API JSON response."""
