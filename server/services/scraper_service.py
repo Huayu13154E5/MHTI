@@ -338,6 +338,41 @@ class ScraperService(ScraperConfigMixin, ScraperMetadataMixin, ScraperMediaMixin
                 result.scrape_logs = scrape_logs
                 return result
 
+        # Step 4.6: 多季检查 - 如果季号未解析且剧集有多个有效季，需要用户选择
+        if parsed.season is None and series.seasons:
+            valid_seasons = [
+                s for s in series.seasons
+                if s.season_number > 0 and (s.episode_count or 0) > 0
+            ]
+            if len(valid_seasons) > 1:
+                result.series_info = series
+                # 加载第一个有效季的详情（供 UI 展示）
+                first_season_num = valid_seasons[0].season_number
+                try:
+                    season_detail = await self.tmdb_service.get_season_by_api(
+                        result.selected_id, first_season_num
+                    )
+                    for i, s in enumerate(series.seasons):
+                        if s.season_number == first_season_num:
+                            series.seasons[i] = season_detail
+                            break
+                    result.series_info = series
+                except Exception as e:
+                    logger.warning(f"获取季度详情失败: {e}")
+
+                # 记录日志
+                multi_season_step = ScrapeLogStep(name="确定季/集", logs=[])
+                multi_season_step.logs.append(ScrapeLogEntry(
+                    message=f"剧集有 {len(valid_seasons)} 个季度（季号: {', '.join(str(s.season_number) for s in valid_seasons)}），需要用户选择"
+                ))
+                scrape_logs.append(multi_season_step)
+                await notify_log_update()
+
+                result.status = ScrapeStatus.NEED_SEASON_EPISODE
+                result.message = f"剧集有 {len(valid_seasons)} 个季度，请手动选择季和集"
+                result.scrape_logs = scrape_logs
+                return result
+
         # Determine season and episode
         season_num = parsed.season if parsed.season is not None else 1
         episode_num = parsed.episode if parsed.episode is not None else 1
