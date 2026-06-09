@@ -67,6 +67,7 @@ const loadedSeasons = ref<TMDBSeason[]>([])
 
 // 手动匹配搜索相关
 const manualStep = ref(1) // 1=搜索, 2=选季, 3=选集
+const manualSearchMode = ref<'name' | 'id'>('name')
 const manualSearchQuery = ref('')
 const manualSearching = ref(false)
 const manualSearchResults = ref<TMDBSearchResult[]>([])
@@ -268,7 +269,7 @@ const goBackToEmbyStep1 = () => {
   loadedSeasons.value = []
 }
 
-// 手动匹配：搜索（只显示成人内容）
+// 手动匹配：搜索（按名称，只显示成人内容）
 const handleManualSearch = async () => {
   if (!manualSearchQuery.value.trim()) {
     message.warning('请输入搜索关键词')
@@ -286,6 +287,53 @@ const handleManualSearch = async () => {
     console.error(error)
   } finally {
     manualSearching.value = false
+  }
+}
+
+// 手动匹配：按 TMDB ID 查询
+const handleManualSearchById = async () => {
+  const idStr = manualSearchQuery.value.trim()
+  if (!idStr) {
+    message.warning('请输入 TMDB ID')
+    return
+  }
+  const tmdbId = parseInt(idStr, 10)
+  if (isNaN(tmdbId) || tmdbId <= 0) {
+    message.warning('请输入有效的 TMDB ID（数字）')
+    return
+  }
+
+  manualSearching.value = true
+  manualHasSearched.value = true
+  try {
+    const series = await tmdbApi.getSeries(tmdbId)
+    const result: TMDBSearchResult = {
+      id: series.id,
+      name: series.name,
+      original_name: series.original_name,
+      first_air_date: series.first_air_date,
+      poster_path: series.poster_path,
+      overview: series.overview,
+      vote_average: series.vote_average,
+      adult: false,
+    }
+    manualSearchResults.value = [result]
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string; message?: string } } }
+    const errorMsg = err.response?.data?.message || err.response?.data?.error || '查询失败'
+    message.error(errorMsg)
+    console.error(error)
+  } finally {
+    manualSearching.value = false
+  }
+}
+
+// 手动匹配：搜索提交（根据模式分发）
+const handleManualSearchSubmit = () => {
+  if (manualSearchMode.value === 'id') {
+    handleManualSearchById()
+  } else {
+    handleManualSearch()
   }
 }
 
@@ -352,12 +400,13 @@ const manualCurrentEpisodes = computed(() => {
 
 // TMDB 搜索弹窗状态
 const showTmdbSearchModal = ref(false)
+const tmdbSearchMode = ref<'name' | 'id'>('name')
 const tmdbSearchQuery = ref('')
 const tmdbSearching = ref(false)
 const tmdbSearchResults = ref<TMDBSearchResult[]>([])
 const tmdbHasSearched = ref(false)
 
-// TMDB 搜索
+// TMDB 搜索（按名称）
 const handleTmdbSearch = async () => {
   if (!tmdbSearchQuery.value.trim()) {
     message.warning('请输入搜索关键词')
@@ -380,6 +429,54 @@ const handleTmdbSearch = async () => {
   }
 }
 
+// TMDB 搜索（按 ID）
+const handleTmdbSearchById = async () => {
+  const idStr = tmdbSearchQuery.value.trim()
+  if (!idStr) {
+    message.warning('请输入 TMDB ID')
+    return
+  }
+  const tmdbId = parseInt(idStr, 10)
+  if (isNaN(tmdbId) || tmdbId <= 0) {
+    message.warning('请输入有效的 TMDB ID（数字）')
+    return
+  }
+
+  tmdbSearching.value = true
+  tmdbHasSearched.value = true
+  try {
+    const series = await tmdbApi.getSeries(tmdbId)
+    // 将 series 转为搜索结果格式
+    const result: TMDBSearchResult = {
+      id: series.id,
+      name: series.name,
+      original_name: series.original_name,
+      first_air_date: series.first_air_date,
+      poster_path: series.poster_path,
+      overview: series.overview,
+      vote_average: series.vote_average,
+      adult: false,
+    }
+    tmdbSearchResults.value = [result]
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { error?: string; message?: string } } }
+    const errorMsg = err.response?.data?.message || err.response?.data?.error || '查询失败'
+    message.error(errorMsg)
+    console.error(error)
+  } finally {
+    tmdbSearching.value = false
+  }
+}
+
+// TMDB 搜索提交（根据模式分发）
+const handleTmdbSearchSubmit = () => {
+  if (tmdbSearchMode.value === 'id') {
+    handleTmdbSearchById()
+  } else {
+    handleTmdbSearch()
+  }
+}
+
 // TMDB 搜索选择剧集
 const handleTmdbSelectSeries = async (result: TMDBSearchResult) => {
   showTmdbSearchModal.value = false
@@ -388,6 +485,7 @@ const handleTmdbSelectSeries = async (result: TMDBSearchResult) => {
 
 // 打开 TMDB 搜索弹窗
 const openTmdbSearchModal = () => {
+  tmdbSearchMode.value = 'name'
   tmdbSearchQuery.value = ''
   tmdbSearchResults.value = []
   tmdbHasSearched.value = false
@@ -412,6 +510,7 @@ watch(() => props.show, (show) => {
     fileAction.value = 'skip'
     embyAction.value = 'force'
     loadedSeasons.value = []
+    manualSearchMode.value = 'name'
     manualSearchQuery.value = ''
     manualSearchResults.value = []
     manualHasSearched.value = false
@@ -601,21 +700,37 @@ const getYear = (date: string | null) => {
           <template v-if="isRetryMode">
             <!-- 步骤 1: 搜索 -->
             <template v-if="manualStep === 1">
+              <NSpace align="center">
+                <NButton
+                  :type="manualSearchMode === 'name' ? 'primary' : 'default'"
+                  size="small"
+                  @click="manualSearchMode = 'name'"
+                >
+                  按名称
+                </NButton>
+                <NButton
+                  :type="manualSearchMode === 'id' ? 'primary' : 'default'"
+                  size="small"
+                  @click="manualSearchMode = 'id'"
+                >
+                  按 TMDB ID
+                </NButton>
+              </NSpace>
               <NSpace>
                 <NInput
                   v-model:value="manualSearchQuery"
-                  placeholder="输入剧集名称搜索..."
+                  :placeholder="manualSearchMode === 'id' ? '输入 TMDB ID（如 156926）...' : '输入剧集名称搜索...'"
                   style="width: 450px"
-                  @keyup.enter="handleManualSearch"
+                  @keyup.enter="handleManualSearchSubmit"
                 />
-                <NButton type="primary" :loading="manualSearching" @click="handleManualSearch">
-                  搜索
+                <NButton type="primary" :loading="manualSearching" @click="handleManualSearchSubmit">
+                  {{ manualSearchMode === 'id' ? '查询' : '搜索' }}
                 </NButton>
               </NSpace>
 
               <NSpin :show="manualSearching || loadingSeasons">
                 <div style="min-height: 200px; max-height: 400px; overflow-y: auto">
-                  <NEmpty v-if="manualHasSearched && manualSearchResults.length === 0" description="未找到匹配结果" />
+                  <NEmpty v-if="manualHasSearched && manualSearchResults.length === 0" :description="manualSearchMode === 'id' ? '未找到该 ID 对应的剧集' : '未找到匹配结果'" />
                   <NList v-else-if="manualSearchResults.length > 0" hoverable clickable>
                     <NListItem v-for="item in manualSearchResults" :key="item.id" @click="handleManualSelectSeries(item)">
                       <NThing>
@@ -1078,21 +1193,37 @@ const getYear = (date: string | null) => {
           <template v-else-if="needManualInput">
             <!-- 步骤 1: 搜索 -->
             <template v-if="manualStep === 1">
+              <NSpace align="center">
+                <NButton
+                  :type="manualSearchMode === 'name' ? 'primary' : 'default'"
+                  size="small"
+                  @click="manualSearchMode = 'name'"
+                >
+                  按名称
+                </NButton>
+                <NButton
+                  :type="manualSearchMode === 'id' ? 'primary' : 'default'"
+                  size="small"
+                  @click="manualSearchMode = 'id'"
+                >
+                  按 TMDB ID
+                </NButton>
+              </NSpace>
               <NSpace>
                 <NInput
                   v-model:value="manualSearchQuery"
-                  placeholder="输入剧集名称搜索..."
+                  :placeholder="manualSearchMode === 'id' ? '输入 TMDB ID（如 156926）...' : '输入剧集名称搜索...'"
                   style="width: 450px"
-                  @keyup.enter="handleManualSearch"
+                  @keyup.enter="handleManualSearchSubmit"
                 />
-                <NButton type="primary" :loading="manualSearching" @click="handleManualSearch">
-                  搜索
+                <NButton type="primary" :loading="manualSearching" @click="handleManualSearchSubmit">
+                  {{ manualSearchMode === 'id' ? '查询' : '搜索' }}
                 </NButton>
               </NSpace>
 
               <NSpin :show="manualSearching || loadingSeasons">
                 <div style="min-height: 200px; max-height: 400px; overflow-y: auto">
-                  <NEmpty v-if="manualHasSearched && manualSearchResults.length === 0" description="未找到成人内容匹配结果" />
+                  <NEmpty v-if="manualHasSearched && manualSearchResults.length === 0" :description="manualSearchMode === 'id' ? '未找到该 ID 对应的剧集' : '未找到成人内容匹配结果'" />
                   <NList v-else-if="manualSearchResults.length > 0" hoverable clickable>
                     <NListItem v-for="item in manualSearchResults" :key="item.id" @click="handleManualSelectSeries(item)">
                       <NThing>
@@ -1243,23 +1374,41 @@ const getYear = (date: string | null) => {
     :segmented="{ content: true }"
   >
     <NSpace vertical>
+      <!-- 搜索模式切换 -->
+      <NSpace align="center">
+        <NButton
+          :type="tmdbSearchMode === 'name' ? 'primary' : 'default'"
+          size="small"
+          @click="tmdbSearchMode = 'name'"
+        >
+          按名称
+        </NButton>
+        <NButton
+          :type="tmdbSearchMode === 'id' ? 'primary' : 'default'"
+          size="small"
+          @click="tmdbSearchMode = 'id'"
+        >
+          按 TMDB ID
+        </NButton>
+      </NSpace>
+
       <NSpace>
         <NInput
           v-model:value="tmdbSearchQuery"
-          placeholder="输入剧集名称搜索..."
+          :placeholder="tmdbSearchMode === 'id' ? '输入 TMDB ID（如 156926）...' : '输入剧集名称搜索...'"
           style="width: 400px"
-          @keyup.enter="handleTmdbSearch"
+          @keyup.enter="handleTmdbSearchSubmit"
         >
           <template #prefix><NIcon :component="SearchOutline" /></template>
         </NInput>
-        <NButton type="primary" :loading="tmdbSearching" @click="handleTmdbSearch">
-          搜索
+        <NButton type="primary" :loading="tmdbSearching" @click="handleTmdbSearchSubmit">
+          {{ tmdbSearchMode === 'id' ? '查询' : '搜索' }}
         </NButton>
       </NSpace>
 
       <NSpin :show="tmdbSearching">
         <div style="min-height: 200px; max-height: 400px; overflow-y: auto">
-          <NEmpty v-if="tmdbHasSearched && tmdbSearchResults.length === 0" description="未找到成人内容匹配结果" />
+          <NEmpty v-if="tmdbHasSearched && tmdbSearchResults.length === 0" :description="tmdbSearchMode === 'id' ? '未找到该 ID 对应的剧集' : '未找到成人内容匹配结果'" />
           <NList v-else-if="tmdbSearchResults.length > 0" hoverable clickable>
             <NListItem v-for="item in tmdbSearchResults" :key="item.id" @click="handleTmdbSelectSeries(item)">
               <NThing>
