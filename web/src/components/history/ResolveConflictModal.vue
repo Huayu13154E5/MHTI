@@ -169,7 +169,7 @@ const getImageUrl = (path: string | null, size = 'w300') => {
 // 季列表（过滤掉第0季）- 优先使用加载的数据
 const seasons = computed(() => {
   const list = loadedSeasons.value.length ? loadedSeasons.value : (seriesInfo.value?.seasons || [])
-  return list.filter((s) => s.season_number > 0)
+  return list.filter((s) => s.season_number >= 0)
 })
 
 // 当前选中季的集列表
@@ -204,7 +204,7 @@ const selectSeries = async (result: TMDBSearchResult) => {
 
     // 默认选中第一季
     if (loadedSeasons.value.length) {
-      const validSeasons = loadedSeasons.value.filter(s => s.season_number > 0)
+      const validSeasons = loadedSeasons.value.filter(s => s.season_number >= 0)
       const firstSeason = validSeasons[0]
       if (firstSeason) {
         selectedSeason.value = firstSeason.season_number
@@ -244,7 +244,7 @@ const enterEmbySeasonSelect = async () => {
 
     // 默认选中第一季
     if (loadedSeasons.value.length) {
-      const validSeasons = loadedSeasons.value.filter(s => s.season_number > 0)
+      const validSeasons = loadedSeasons.value.filter(s => s.season_number >= 0)
       const firstSeason = validSeasons[0]
       if (firstSeason) {
         selectedSeason.value = firstSeason.season_number
@@ -347,7 +347,7 @@ const handleManualSelectSeries = async (result: TMDBSearchResult) => {
     loadedSeasons.value = series.seasons || []
 
     // 默认选中第一个有效季
-    const validSeasons = loadedSeasons.value.filter(s => s.season_number > 0 && (s.episode_count ?? 0) > 0)
+    const validSeasons = loadedSeasons.value.filter(s => s.season_number >= 0 && (s.episode_count ?? 0) > 0)
     const firstSeason = validSeasons[0]
     if (firstSeason) {
       selectedSeason.value = firstSeason.season_number
@@ -389,7 +389,7 @@ const goBackManualStep = () => {
 
 // 手动匹配：有效季列表
 const manualValidSeasons = computed(() => {
-  return loadedSeasons.value.filter(s => s.season_number > 0 && (s.episode_count ?? 0) > 0)
+  return loadedSeasons.value.filter(s => s.season_number >= 0 && (s.episode_count ?? 0) > 0)
 })
 
 // 手动匹配：当前季的集列表
